@@ -6,7 +6,10 @@ import 'package:farmlink/Firebase/firestore.dart';
 import 'package:farmlink/utils/loadingdialog.dart';
 import 'package:farmlink/utils/utils.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:permission_handler/permission_handler.dart';
 
 class TransportDetails extends StatefulWidget {
   final Map<String, dynamic> transportData;
@@ -30,7 +33,7 @@ class _TransportDetailsState extends State<TransportDetails> {
   final TextEditingController weightController = TextEditingController();
   final TextEditingController driverNameController = TextEditingController();
   final TextEditingController driverNumberController = TextEditingController();
-  final TextEditingController startLocationController = TextEditingController();
+  late final TextEditingController startLocationController = TextEditingController();
   List<TextEditingController> dropLocationControllers = [];
 
   @override
@@ -123,10 +126,11 @@ class _TransportDetailsState extends State<TransportDetails> {
                     suffixIcon: IconButton(
                       icon: Icon(Icons.my_location),
                       onPressed: () async {
-                        //print('Current Location: ${getCurrentLocation().toString()}');
-                        _getLocation();
-                        print('Current Location: ${_locationMessage}');
-
+                        setState(() {
+                          _locationMessage = 'Fetching location...'; // Show loading indicator
+                        });
+                        await _getCurrentLocation(); // Wait for location to be fetched
+                        print('Current Location: $_locationMessage');
                       },
                     ),
                   ),
@@ -191,37 +195,68 @@ class _TransportDetailsState extends State<TransportDetails> {
     );
   }
 
-  Future<void> _getLocation() async {
-    final String subscriptionKey = '4e6921a3-4a31-491d-9127-7fc01ca1628b';
-    final String azureMapsUrl = 'https://atlas.microsoft.com/geolocation/ip/json?subscription-key=$subscriptionKey';
-
+  Future<void> _getCurrentLocation() async {
     try {
-      final response = await http.get(Uri.parse(azureMapsUrl));
-      print('Response status code: ${response.statusCode}');
-      print('Response body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final decodedResponse = json.decode(response.body);
-        print('Decoded Response: $decodedResponse');
-
-        final latitude = decodedResponse['location']['lat'];
-        final longitude = decodedResponse['location']['lon'];
-
+      // Check if permission is already granted
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.deniedForever) {
+        // If permission is permanently denied, show a message or navigate to settings
         setState(() {
-          _locationMessage = 'Latitude: $latitude, Longitude: $longitude';
+          _locationMessage = 'Location permission denied permanently';
         });
-      } else {
-        setState(() {
-          _locationMessage = 'Failed to get location: ${response.statusCode}';
-        });
+        return;
+      } else if (permission == LocationPermission.denied) {
+        // If permission is denied but not permanently, request permission
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          // If permission is still denied, show a message or handle accordingly
+          setState(() {
+            _locationMessage = 'Location permission denied';
+          });
+          return;
+        }
       }
+
+      // Get the current position
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      // Convert coordinates to an address
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      // Extract desired components from the address
+      String postalCode = placemarks[0].postalCode ?? '';
+      String locality = placemarks[0].locality ?? '';
+      String adminArea = placemarks[0].administrativeArea ?? '';
+      String country = placemarks[0].country ?? '';
+
+      // Concatenate the components to form the address
+      String address = '$postalCode, $locality, $adminArea, $country';
+
+      // If any component is empty, remove the corresponding comma
+      address = address.replaceAll(RegExp(r',\s*,'), ',');
+
+      // If the address is empty, set it as 'Unknown'
+      if (address.isEmpty) {
+        address = 'Unknown';
+      }
+
+      // Update the _locationMessage with the formatted address
+      setState(() {
+        _locationMessage = address;
+        startLocationController.text = _locationMessage; // Set the address to startLocationController
+      });
     } catch (e) {
-      print('Error: $e');
       setState(() {
         _locationMessage = 'Error: $e';
       });
     }
   }
+
 
   void _addAnotherDropLocation() {
     setState(() {
