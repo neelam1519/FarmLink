@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "719997160582",
+    "firebase_url": "https://farmlink0403-default-rtdb.firebaseio.com",
+    "project_id": "farmlink0403",
+    "storage_bucket": "farmlink0403.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:719997160582:android:0c64ffd2c2573abcf05507",
+        "android_client_info": {
+          "package_name": "com.neelam.farmlink"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "719997160582-gu6i0p63ecp1roqpnrcbubccg2fov2eq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.neelam.farmlink",
+            "certificate_hash": "9aed0017799615dfccc5175790f5838cac3918e3"
+          }
+        },
+        {
+          "client_id": "719997160582-usmnsjsnabc5k4bccrbj3uoida5m8hd6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDzocBTs0Wct4AjYfuhrMH3pnL4jP0NlW4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "719997160582-usmnsjsnabc5k4bccrbj3uoida5m8hd6.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "719997160582-nrim3253mlq95mngtnh0cj4ghrbninus.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.neelam.farmlink"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

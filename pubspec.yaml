@@ -1,0 +1,35 @@
+name: farmlink
+description: "Project to help the farmers in the goods transportation"
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  firebase_core: ^2.27.0
+  google_sign_in: ^6.2.1
+  firebase_auth: ^4.17.8
+  cloud_firestore: ^4.15.9
+  email_validator: ^2.1.17
+  flutter_styled_toast: ^2.2.1
+  flutter_easyloading: ^3.0.5
+  flutter_secure_storage: ^9.0.0
+  http: ^1.2.1
+  flutter_typeahead: ^5.2.0
+  permission_handler: ^11.3.0
+
+
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
