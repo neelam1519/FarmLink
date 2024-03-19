@@ -1,13 +1,7 @@
 import 'package:farmlink/bottomnaviagation/selling.dart';
 import 'package:farmlink/utils/loadingdialog.dart';
 import 'package:flutter/material.dart';
-import 'package:farmlink/main.dart'; // Assume these are your actual pages
-import 'package:flutter_easyloading/flutter_easyloading.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-
 import 'bottomnaviagation/profile.dart';
-import 'bottomnaviagation/transport.dart';
 
 class Home extends StatefulWidget {
   final bool isTransporter; // Define the boolean parameter
@@ -48,7 +42,7 @@ class _HomeState extends State<Home> {
   Widget _buildPage(int index) {
     switch (index) {
       case 0:
-        return Transport(); // Replace with your Transport page
+        return Profile(); // Replace with your Transport page
       case 1:
         return FarmSell(); // Replace with your Sells page
       case 2:
@@ -62,21 +56,5 @@ class _HomeState extends State<Home> {
     setState(() {
       _selectedIndex = index; // Update the selected index
     });
-  }
-
-  void _signOut(BuildContext context) async {
-    loadingDialog.showDefaultLoading('Loading...'); // Assuming you meant to use FlutterEasyLoading
-    try {
-      await FirebaseAuth.instance.signOut();
-      final GoogleSignIn googleSignIn = GoogleSignIn();
-      if (await googleSignIn.isSignedIn()) {
-        await googleSignIn.disconnect();
-      }
-      EasyLoading.dismiss();
-      Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (context) => MyApp()), (route) => false);
-    } catch (e) {
-      EasyLoading.dismiss();
-      print("Error signing out: $e");
-    }
   }
 }

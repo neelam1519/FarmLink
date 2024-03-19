@@ -102,7 +102,7 @@ class _LoginPageState extends State<LoginPage> {
               padding: const EdgeInsets.all(8.0),
               child: ElevatedButton(
                 onPressed: () {
-                  _handleEmailSignIn(_emailController.text, _passwordController.text);
+                  //_handleEmailSignIn(_emailController.text, _passwordController.text);
                 },
                 child: const Text('Submit'),
               ),
@@ -182,15 +182,15 @@ class _LoginPageState extends State<LoginPage> {
         if (isNewUser) {
           // This is a new user
           print('New user signed in with Google: ${user?.displayName}');
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => LoginDetails()), // Replace Home() with your home page widget
-          );
+          if (mounted) { // Check if the widget is mounted before navigating
+            Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => LoginDetails()));
+          }
         } else {
           // This is an existing user
           print('Existing user signed in with Google: ${user?.displayName}');
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => Home(isTransporter: isTransporter)), // Replace Home() with your home page widget
-          );
+          if (mounted) { // Check if the widget is mounted before navigating
+            Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => Home(isTransporter: isTransporter)));
+          }
         }
       } else {
         // User canceled the sign-in
@@ -204,29 +204,30 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  void _handleEmailSignIn(String email, String password) async {
-    try {
-      EasyLoading.show(status: 'Signing in...'); // Show loading indicator
-      UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      // Authentication successful, user is signed in
-      User? user = userCredential.user;
-      print('User signed in: ${user!.uid}');
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => LoginDetails()), // Replace Home() with your home page widget
-      );
-      // Navigate to the home page or perform any other actions
-    } catch (error) {
-      // Handle authentication failure
-      print('Error signing in with email and password: $error');
-      // You can display an error message to the user or handle the error in other ways
-    } finally {
-      // Dismiss the loading dialog after sign-in operation completes
-      EasyLoading.dismiss();
-    }
-  }
+
+  // void _handleEmailSignIn(String email, String password) async {
+  //   try {
+  //     EasyLoading.show(status: 'Signing in...'); // Show loading indicator
+  //     UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+  //       email: email,
+  //       password: password,
+  //     );
+  //     // Authentication successful, user is signed in
+  //     User? user = userCredential.user;
+  //     print('User signed in: ${user!.uid}');
+  //     Navigator.of(context).pushReplacement(
+  //       MaterialPageRoute(builder: (context) => LoginDetails()), // Replace Home() with your home page widget
+  //     );
+  //     // Navigate to the home page or perform any other actions
+  //   } catch (error) {
+  //     // Handle authentication failure
+  //     print('Error signing in with email and password: $error');
+  //     // You can display an error message to the user or handle the error in other ways
+  //   } finally {
+  //     // Dismiss the loading dialog after sign-in operation completes
+  //     EasyLoading.dismiss();
+  //   }
+  // }
 
   @override
   void dispose() {

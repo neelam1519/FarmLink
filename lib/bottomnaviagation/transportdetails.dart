@@ -1,15 +1,14 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:farmlink/Firebase/firestore.dart';
 import 'package:farmlink/utils/loadingdialog.dart';
 import 'package:farmlink/utils/utils.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
-import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_google_places/flutter_google_places.dart';
+import 'package:google_maps_webservice/places.dart';
 
 class TransportDetails extends StatefulWidget {
   final Map<String, dynamic> transportData;
@@ -27,14 +26,14 @@ class _TransportDetailsState extends State<TransportDetails> {
   final Utils utils = Utils();
 
   String _locationMessage = '';
-  // TextEditingControllers for each input field
   final TextEditingController vehicleNumberController = TextEditingController();
   final TextEditingController vehicleModelController = TextEditingController();
   final TextEditingController weightController = TextEditingController();
   final TextEditingController driverNameController = TextEditingController();
   final TextEditingController driverNumberController = TextEditingController();
   late final TextEditingController startLocationController = TextEditingController();
-  List<TextEditingController> dropLocationControllers = [];
+
+  late GoogleMapsPlaces _places;
 
   @override
   void initState() {
@@ -47,13 +46,12 @@ class _TransportDetailsState extends State<TransportDetails> {
       driverNameController.text = widget.transportData['DRIVER NAME'] ?? '';
       driverNumberController.text = widget.transportData['DRIVER NUMBER'] ?? '';
       startLocationController.text = widget.transportData['START LOCATION'] ?? '';
-      List<dynamic> dropLocations = widget.transportData['DROP LOCATIONS'];
-      dropLocationControllers.addAll(dropLocations.map((location) => TextEditingController(text: location.toString())));
-    } else {
-      // Ensure at least one drop location controller is present
-      dropLocationControllers.add(TextEditingController());
     }
+
+    // Initialize _places with your Google Places API key
+    _places = GoogleMapsPlaces(apiKey: 'AIzaSyA3ewNEKXzUC1IYVkhya9OqK5DPefBr5AI');
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -124,16 +122,11 @@ class _TransportDetailsState extends State<TransportDetails> {
                   decoration: InputDecoration(
                     labelText: 'Start Location',
                     suffixIcon: IconButton(
-                      icon: Icon(Icons.my_location),
-                      onPressed: () async {
-                        setState(() {
-                          _locationMessage = 'Fetching location...'; // Show loading indicator
-                        });
-                        await _getCurrentLocation(); // Wait for location to be fetched
-                        print('Current Location: $_locationMessage');
-                      },
+                      icon: Icon(Icons.my_location_outlined),
+                      onPressed: _getCurrentLocation,
                     ),
                   ),
+                  onTap: _onStartLocationTextFieldTapped,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter the start location';
@@ -141,30 +134,12 @@ class _TransportDetailsState extends State<TransportDetails> {
                     return null;
                   },
                 ),
-                ...List.generate(dropLocationControllers.length, (index) =>
-                    TextFormField(
-                      controller: dropLocationControllers[index],
-                      decoration: InputDecoration(labelText: 'Drop Location ${index + 1}'),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter drop location ${index + 1}';
-                        }
-                        return null;
-                      },
-                    ),
-                ),
-                SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _addAnotherDropLocation,
-                  child: Text('Add Another Drop Location'),
-                ),
                 SizedBox(height: 20),
                 Center(
                   child: ElevatedButton(
                     onPressed: () {
                       loadingDialog.showDefaultLoading('Uploading the Details...');
                       if (_formKey.currentState!.validate()) {
-                        List<String> dropLocations = dropLocationControllers.map((controller) => controller.text).toList();
                         Map<String, dynamic> uploadData = {
                           'VEHICLE NUMBER': vehicleNumberController.text,
                           'VEHICLE MODEL': vehicleModelController.text,
@@ -172,7 +147,6 @@ class _TransportDetailsState extends State<TransportDetails> {
                           'DRIVER NAME': driverNameController.text,
                           'DRIVER NUMBER': driverNumberController.text,
                           'START LOCATION': startLocationController.text,
-                          'DROP LOCATIONS': dropLocations,
                         };
                         DocumentReference docRef = FirebaseFirestore.instance.doc('/USERDETAILS/${utils.getCurrentUserUID()}/VEHICLES/${vehicleNumberController.text}');
                         fireStoreService.uploadMapDataToFirestore(uploadData, docRef);
@@ -197,59 +171,45 @@ class _TransportDetailsState extends State<TransportDetails> {
 
   Future<void> _getCurrentLocation() async {
     try {
-      // Check if permission is already granted
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.deniedForever) {
-        // If permission is permanently denied, show a message or navigate to settings
         setState(() {
           _locationMessage = 'Location permission denied permanently';
         });
         return;
       } else if (permission == LocationPermission.denied) {
-        // If permission is denied but not permanently, request permission
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          // If permission is still denied, show a message or handle accordingly
           setState(() {
             _locationMessage = 'Location permission denied';
           });
           return;
         }
       }
-
-      // Get the current position
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
+      print('Position: ${position.toString()}');
+      final response = await http.get(Uri.parse('https://maps.googleapis.com/maps/api/geocode/json?latlng=${position.latitude},${position.longitude}&key=AIzaSyA3ewNEKXzUC1IYVkhya9OqK5DPefBr5AI'));
 
-      // Convert coordinates to an address
-      List<Placemark> placemarks = await placemarkFromCoordinates(
-        position.latitude,
-        position.longitude,
-      );
-
-      // Extract desired components from the address
-      String postalCode = placemarks[0].postalCode ?? '';
-      String locality = placemarks[0].locality ?? '';
-      String adminArea = placemarks[0].administrativeArea ?? '';
-      String country = placemarks[0].country ?? '';
-
-      // Concatenate the components to form the address
-      String address = '$postalCode, $locality, $adminArea, $country';
-
-      // If any component is empty, remove the corresponding comma
-      address = address.replaceAll(RegExp(r',\s*,'), ',');
-
-      // If the address is empty, set it as 'Unknown'
-      if (address.isEmpty) {
-        address = 'Unknown';
+      if (response.statusCode == 200) {
+        final decodedResponse = jsonDecode(response.body);
+        if (decodedResponse['status'] == 'OK') {
+          final formattedAddress = decodedResponse['results'][0]['formatted_address'];
+          setState(() {
+            _locationMessage = formattedAddress;
+            startLocationController.text = _locationMessage;
+          });
+        } else {
+          setState(() {
+            _locationMessage = 'Error: Unable to fetch location data';
+          });
+        }
+      } else {
+        setState(() {
+          _locationMessage = 'Error: Unable to fetch location data';
+        });
       }
-
-      // Update the _locationMessage with the formatted address
-      setState(() {
-        _locationMessage = address;
-        startLocationController.text = _locationMessage; // Set the address to startLocationController
-      });
     } catch (e) {
       setState(() {
         _locationMessage = 'Error: $e';
@@ -257,22 +217,25 @@ class _TransportDetailsState extends State<TransportDetails> {
     }
   }
 
-
-  void _addAnotherDropLocation() {
-    setState(() {
-      dropLocationControllers.add(TextEditingController());
-    });
-  }
-
-  @override
-  void dispose() {
-    vehicleNumberController.dispose();
-    vehicleModelController.dispose();
-    weightController.dispose();
-    driverNameController.dispose();
-    driverNumberController.dispose();
-    startLocationController.dispose();
-    dropLocationControllers.forEach((controller) => controller.dispose());
-    super.dispose();
+  void _onStartLocationTextFieldTapped() async {
+    print("Location Field on tapped");
+    // Show Google Places autocomplete
+    Prediction? prediction = await PlacesAutocomplete.show(
+      context: context,
+      apiKey: 'AIzaSyA3ewNEKXzUC1IYVkhya9OqK5DPefBr5AI',
+      mode: Mode.overlay,
+      language: "en",
+    );
+    print('Pridiction: ${prediction.toString()}');
+    if (prediction != null) {
+      // Retrieve details for the selected place
+      PlacesDetailsResponse detail = await _places.getDetailsByPlaceId(prediction.placeId!);
+      print('Plces: ${detail.toString()}');
+      if (detail.status == "OK") {
+        setState(() {
+          startLocationController.text = detail.result.formattedAddress!;
+        });
+      }
+    }
   }
 }

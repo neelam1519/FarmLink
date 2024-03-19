@@ -5,8 +5,8 @@ import 'package:farmlink/utils/loadingdialog.dart';
 import 'package:farmlink/utils/sharedpreferences.dart';
 import 'package:farmlink/utils/utils.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart'; // Import flutter_typeahead package
 
 class LoginDetails extends StatefulWidget {
   @override
@@ -14,18 +14,20 @@ class LoginDetails extends StatefulWidget {
 }
 
 class _LoginDetailsState extends State<LoginDetails> {
-  final _formKey = GlobalKey<FormState>(); // Add this line
-  FireStoreService firestoreService=new FireStoreService();
-  Utils utils=new Utils();
-  LoadingDialog loadingDialog=new LoadingDialog();
-  SharedPreferences sharedPreferences=new SharedPreferences();
+  final _formKey = GlobalKey<FormState>();
+  FireStoreService firestoreService = new FireStoreService();
+  Utils utils = new Utils();
+  LoadingDialog loadingDialog = new LoadingDialog();
+  SharedPreferences sharedPreferences = new SharedPreferences();
 
+  final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _companyNameController = TextEditingController(); // Added for company name
-  final TextEditingController _ownerNameController = TextEditingController(); // Added for owner name
-  final TextEditingController _ownerNumberController = TextEditingController(); // Added for owner number
+  final TextEditingController _numberController = TextEditingController();
+  final TextEditingController _companyNameController = TextEditingController(); // Add companyNameController
 
-  bool _isTransporter = false;
+  String _selectedRole = 'Farmer'; // Default role
+  List<String> _selectedTransporterTypes = [];
+  String _selectedCompany = '';
 
   @override
   Widget build(BuildContext context) {
@@ -36,145 +38,192 @@ class _LoginDetailsState extends State<LoginDetails> {
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
-          key: _formKey, // Connect the Form widget with the GlobalKey
+          key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
                 'Username',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 8),
-
               TextFormField(
-                controller: _nameController,
+                controller: _usernameController,
                 decoration: InputDecoration(
                   border: OutlineInputBorder(),
                   hintText: 'Enter your username',
+                  contentPadding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                 ),
+                style: TextStyle(fontSize: 16),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your username';
                   } else if (value.length < 3) {
-                    return 'username must be at least 3 characters long.';
+                    return 'Username must be at least 3 characters long.';
                   }
-                  return null; // Return null if the input is valid
+                  return null;
                 },
               ),
               SizedBox(height: 20),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Are you a transporter?',
-                      style: TextStyle(fontSize: 18),
-                    ),
-                  ),
-                  CupertinoSwitch(
-                    value: _isTransporter,
-                    onChanged: (bool value) {
-                      setState(() {
-                        _isTransporter = value;
-                      });
-                    },
-                  ),
-                ],
+              Text(
+                'Select your role:',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              Visibility( // Added for conditional rendering
-                visible: _isTransporter, // Render the fields only if the transporter switch is on
-                child: Column(
+              SizedBox(height: 8),
+              DropdownButton<String>(
+                value: _selectedRole,
+                onChanged: (newValue) {
+                  setState(() {
+                    _selectedRole = newValue!;
+                  });
+                },
+                items: ['Farmer', 'Transporter', 'Dealer']
+                    .map<DropdownMenuItem<String>>(
+                      (String value) => DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  ),
+                )
+                    .toList(),
+              ),
+              if (_selectedRole == 'Transporter')
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(height: 20),
                     Text(
-                      'Company Name', // Added for company name
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      'Select transporter type(s):',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     SizedBox(height: 8),
-                    TextFormField(
-                      controller: _companyNameController,
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(),
-                        hintText: 'Enter your company name',
-                      ),
-                      validator: (value) {
-                        if (_isTransporter && (value == null || value.isEmpty)) {
-                          return 'Please enter your company name';
-                        }
-                        return null;
+                    CheckboxListTile(
+                      title: Text('Driver'),
+                      value: _selectedTransporterTypes.contains('Driver'),
+                      onChanged: (value) {
+                        setState(() {
+                          if (value!) {
+                            _selectedTransporterTypes.add('Driver');
+                          } else {
+                            _selectedTransporterTypes.remove('Driver');
+                          }
+                        });
                       },
                     ),
-                    SizedBox(height: 20),
-                    Text(
-                      'Owner Name', // Added for owner name
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(height: 8),
-                    TextFormField(
-                      controller: _ownerNameController,
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(),
-                        hintText: 'Enter owner name',
-                      ),
-                      validator: (value) {
-                        if (_isTransporter && (value == null || value.isEmpty)) {
-                          return 'Please enter the owner name';
-                        }
-                        return null;
+                    CheckboxListTile(
+                      title: Text('Owner'),
+                      value: _selectedTransporterTypes.contains('Owner'),
+                      onChanged: (value) {
+                        setState(() {
+                          if (value!) {
+                            _selectedTransporterTypes.add('Owner');
+                          } else {
+                            _selectedTransporterTypes.remove('Owner');
+                          }
+                        });
                       },
                     ),
-                    SizedBox(height: 20),
-                    Text(
-                      'Owner Number', // Added for owner number
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(height: 8),
-                    TextFormField(
-                      controller: _ownerNumberController,
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(),
-                        hintText: 'Enter owner number',
+                    if (_selectedTransporterTypes.isNotEmpty)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(height: 20),
+                          Text(
+                            'Company Name:',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          SizedBox(height: 8),
+                          TypeAheadField<String>(
+                            suggestionsCallback: (pattern) async {
+                              return await _fetchSuggestedCompanies(pattern);
+                            },
+                            itemBuilder: (context, String suggestion) {
+
+                              return ListTile(
+                                title: Text(suggestion),
+                              );
+                            },
+                            onSelected: (String suggestion) {
+                              print('onSelected1 :$suggestion');
+                              setState(() {
+                                _selectedCompany = suggestion;
+                                print('selectedCompany :$_selectedCompany');
+                                _companyNameController.text = suggestion;
+                              });
+                            },
+                            builder: (context, TextEditingController controller, FocusNode focusNode) {
+                              return TextField(
+                                controller: controller,
+                                focusNode: focusNode,
+                                autofocus: true,
+                                decoration: InputDecoration(
+                                  border: OutlineInputBorder(),
+                                  labelText: 'Company Name',
+                                ),
+                              );
+                            },
+                          ),
+                          SizedBox(height: 20),
+                          Text(
+                            'Name:',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          SizedBox(height: 8),
+                          TextFormField(
+                            controller: _nameController,
+                            decoration: InputDecoration(
+                              border: OutlineInputBorder(),
+                              hintText: 'Enter your name',
+                            ),
+                          ),
+                          SizedBox(height: 20),
+                          Text(
+                            'Number:',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          SizedBox(height: 8),
+                          TextFormField(
+                            controller: _numberController,
+                            decoration: InputDecoration(
+                              border: OutlineInputBorder(),
+                              hintText: 'Enter your number',
+                            ),
+                          ),
+                        ],
                       ),
-                      validator: (value) {
-                        if (_isTransporter && (value == null || value.isEmpty)) {
-                          return 'Please enter the owner number';
-                        }
-                        return null;
-                      },
-                    ),
                   ],
                 ),
-              ),
               SizedBox(height: 20),
               Center(
                 child: ElevatedButton(
-                  onPressed: (){
+                  onPressed: () {
                     if (_formKey.currentState!.validate()) {
                       loadingDialog.showDefaultLoading('Uploading the data....');
-                      // If the form is valid, proceed with your submit logic
                       print("Form is valid. Submitting data...");
-                      print('IS TRANSPOTER: ${_isTransporter}');
-                      Map<String,dynamic> uploadData={};
-                      if(_isTransporter){
-                        uploadData={'USERNAME': _nameController.text,'isTRANSPORTER': _isTransporter,'COMPANY NAME': _companyNameController.text,'NAME':_ownerNameController.text,'MOBILE NUMBER':_ownerNumberController.text};
-                      }else{
-                        uploadData={'USERNAME': _nameController.text,'isTRANSPORTER': _isTransporter};
+                      Map<String, dynamic> uploadData = {
+                        'USERNAME': _usernameController.text,
+                        'ROLE': _selectedRole,
+                      };
+                      if (_selectedRole == 'Transporter' && _selectedTransporterTypes.isNotEmpty) {
+                        uploadData['TRANSPORTER_TYPE'] = _selectedTransporterTypes.join(', ');
+                        uploadData.addAll({
+                          'COMPANY_NAME': _selectedCompany,
+                          'NAME': _nameController.text,
+                          'NUMBER': _numberController.text,
+                        });
                       }
-
-                      DocumentReference documentref=FirebaseFirestore.instance.doc('/USERDETAILS/${utils.getCurrentUserUID()}');
+                      DocumentReference documentref = FirebaseFirestore.instance.doc(
+                          '/USERDETAILS/${utils.getCurrentUserUID()}');
                       firestoreService.uploadMapDataToFirestore(uploadData, documentref);
 
                       sharedPreferences.storeMapValuesInSecureStorage(uploadData);
                       Navigator.of(context).pushReplacement(
                         MaterialPageRoute(
-                          builder: (context) => Home(isTransporter: _isTransporter), // Pass the boolean value
+                          builder: (context) => Home(isTransporter: false),
                         ),
                       );
                       EasyLoading.dismiss();
                     }
-                  }, // Trigger form validation
+                  },
                   child: Text('Submit'),
                 ),
               ),
@@ -185,13 +234,38 @@ class _LoginDetailsState extends State<LoginDetails> {
     );
   }
 
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _companyNameController.dispose(); // Added for company name
-    _ownerNameController.dispose(); // Added for owner name
-    _ownerNumberController.dispose(); // Added for owner number
-    super.dispose();
+  Future<List<String>> _fetchSuggestedCompanies(String pattern) async {
+    print("Getting the company names...: $pattern");
+    if (pattern.isEmpty) {
+      return [];
+    }
+
+    List<String> suggestedCompanies = [];
+
+    try {
+      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+          .collection('USERDETAILS')
+          .where('COMPANY_NAME', isGreaterThanOrEqualTo: pattern)
+          .where('COMPANY_NAME', isLessThan: pattern + 'z') // Assumes 'z' is the maximum character
+          .get();
+
+      querySnapshot.docs.forEach((doc) {
+        // Extract the company name from each document and add it to the list
+        suggestedCompanies.add(doc['COMPANY_NAME']);
+      });
+      print('suggestedCompanies: $suggestedCompanies');
+      return suggestedCompanies;
+    } catch (error) {
+      print('Error fetching suggested companies: $error');
+      return [];
+    }
   }
 
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _nameController.dispose();
+    _numberController.dispose();
+    super.dispose();
+  }
 }
