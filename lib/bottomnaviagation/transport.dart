@@ -31,7 +31,7 @@ class _TransportState extends State<Transport> {
     final ownerDocumentDetails = await fireStoreService.getDocumentDetails(ownerDetails);
 
     if (ownerDocumentDetails != null) {
-      final vehicles = await fireStoreService.getDocumentNames('${ownerDetails.path}/VEHICLES');
+      final vehicles = await fireStoreService.getDocumentNames(FirebaseFirestore.instance.collection('$ownerDetails/VECHILES'));
       print('VEHICLES: ${vehicles.toString()}');
       for (final vehicleId in vehicles) {
         final vehicleDetails = FirebaseFirestore.instance.doc('/USERDETAILS/${utils.getCurrentUserUID()}/VEHICLES/$vehicleId');

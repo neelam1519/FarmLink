@@ -30,4 +30,17 @@ class Utils{
     }
   }
 
+  Future<String?> getCurrentUserEmail() async {
+    FirebaseAuth auth = FirebaseAuth.instance;
+    User? user = auth.currentUser;
+
+    if (user != null) {
+      // User is signed in
+      return user.email;
+    } else {
+      // No user is signed in
+      return null;
+    }
+  }
+
 }

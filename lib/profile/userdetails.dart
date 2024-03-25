@@ -1,20 +1,19 @@
-import 'dart:ffi';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:farmlink/Firebase/firestore.dart';
-import 'package:farmlink/Home.dart';
-import 'package:farmlink/utils/loadingdialog.dart';
-import 'package:farmlink/utils/sharedpreferences.dart';
-import 'package:farmlink/utils/utils.dart';
+import 'package:farmlink/bottomnaviagation/profile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 
-class LoginDetails extends StatefulWidget {
+import '../Firebase/firestore.dart';
+import '../utils/loadingdialog.dart';
+import '../utils/sharedpreferences.dart';
+import '../utils/utils.dart';
+
+class UserDetails extends StatefulWidget {
   @override
-  _LoginDetailsState createState() => _LoginDetailsState();
+  _UserDetailsState createState() => _UserDetailsState();
 }
 
-class _LoginDetailsState extends State<LoginDetails> {
+class _UserDetailsState extends State<UserDetails> {
   final _formKey = GlobalKey<FormState>();
   FireStoreService firestoreService = new FireStoreService();
   Utils utils = new Utils();
@@ -26,16 +25,42 @@ class _LoginDetailsState extends State<LoginDetails> {
   final TextEditingController _numberController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
   final TextEditingController _companyNameController = TextEditingController();
-  String _selectedTransporterType = 'DRIVER';
-  String _selectedRole = 'FARMER';
+  String _selectedTransporterType = 'DRIVER'; // Default value
+  String _selectedRole = 'FARMER'; // Default role
+  bool _isEditMode = false; // Track whether user is in edit mode
   String? companyNameError;
 
+  @override
+  void initState() {
+    super.initState();
+    getDetails().then((value) => setState(() {}));
+  }
+
+  Future<void> getDetails() async {
+    _selectedRole = (await sharedPreferences.getSecurePrefsValue('ROLE'))!;
+    _selectedTransporterType = (await sharedPreferences.getSecurePrefsValue('TRANSPORTER TYPE'))!;
+    _usernameController.text = (await sharedPreferences.getSecurePrefsValue('USERNAME'))!;
+    _nameController.text = (await sharedPreferences.getSecurePrefsValue('NAME'))!;
+    _numberController.text = (await sharedPreferences.getSecurePrefsValue('NUMBER'))!;
+    _locationController.text = (await sharedPreferences.getSecurePrefsValue('LOCATION'))!;
+    _companyNameController.text = (await sharedPreferences.getSecurePrefsValue('COMPANY NAME'))!;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Login Details'),
+        title: Text('Update Details'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.edit), // Edit icon
+            onPressed: () {
+              setState(() {
+                _isEditMode = !_isEditMode; // Toggle edit mode
+              });
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -47,6 +72,7 @@ class _LoginDetailsState extends State<LoginDetails> {
               SizedBox(height: 8),
               TextFormField(
                 controller: _usernameController,
+                enabled: _isEditMode, // Enable/disable based on edit mode
                 decoration: InputDecoration(
                   border: OutlineInputBorder(),
                   labelText: 'Enter your username',
@@ -64,6 +90,7 @@ class _LoginDetailsState extends State<LoginDetails> {
               SizedBox(height: 8),
               TextFormField(
                 controller: _nameController,
+                enabled: _isEditMode, // Enable/disable based on edit mode
                 decoration: InputDecoration(
                   border: OutlineInputBorder(),
                   labelText: 'Enter your name',
@@ -73,6 +100,7 @@ class _LoginDetailsState extends State<LoginDetails> {
               SizedBox(height: 8),
               TextFormField(
                 controller: _numberController,
+                enabled: _isEditMode, // Enable/disable based on edit mode
                 decoration: InputDecoration(
                   border: OutlineInputBorder(),
                   labelText: 'Enter your number',
@@ -82,20 +110,20 @@ class _LoginDetailsState extends State<LoginDetails> {
               SizedBox(height: 8),
               TextFormField(
                 controller: _locationController,
+                enabled: _isEditMode, // Enable/disable based on edit mode
                 decoration: InputDecoration(
                   border: OutlineInputBorder(),
                   labelText: 'Location',
                   suffixIcon: IconButton(
                     icon: Icon(Icons.location_on),
                     onPressed: () {
-                      // Add your onPressed functionality here
                       print('Location icon pressed');
                     },
                   ),
                 ),
                 style: TextStyle(fontSize: 14),
               ),
-              SizedBox(height: 20),
+              SizedBox(height: 10),
               Text(
                 'Select your role:',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -103,24 +131,27 @@ class _LoginDetailsState extends State<LoginDetails> {
               SizedBox(height: 8),
               DropdownButton<String>(
                 value: _selectedRole,
-                onChanged: (newValue) {
+                onChanged: _isEditMode // Enable/disable based on edit mode
+                    ? (newValue) {
                   setState(() {
                     _selectedRole = newValue!;
                   });
-                },
+                }
+                    : null,
                 items: ['FARMER', 'TRANSPORTER', 'DEALER']
                     .map<DropdownMenuItem<String>>(
                       (String value) => DropdownMenuItem<String>(
                     value: value,
                     child: Text(value),
                   ),
-                ).toList(),
+                )
+                    .toList(),
               ),
               if (_selectedRole == 'TRANSPORTER') // Conditionally show the second dropdown
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(height: 20),
+                    SizedBox(height: 10),
                     Text(
                       'Select transporter type:',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -128,11 +159,13 @@ class _LoginDetailsState extends State<LoginDetails> {
                     SizedBox(height: 8),
                     DropdownButton<String>(
                       value: _selectedTransporterType,
-                      onChanged: (newValue) {
+                      onChanged: _isEditMode // Enable/disable based on edit mode
+                          ? (newValue) {
                         setState(() {
                           _selectedTransporterType = newValue!;
                         });
-                      },
+                      }
+                          : null,
                       items: ['DRIVER', 'OWNER', 'BOTH'] // Options for the second dropdown
                           .map<DropdownMenuItem<String>>(
                             (String value) => DropdownMenuItem<String>(
@@ -141,9 +174,11 @@ class _LoginDetailsState extends State<LoginDetails> {
                         ),
                       ).toList(),
                     ),
+                    SizedBox(height: 10),
                     if(_selectedTransporterType=='OWNER' || _selectedTransporterType=='BOTH')
                       TextFormField(
                         controller: _companyNameController,
+                        enabled: _isEditMode,
                         decoration: InputDecoration(
                           border: OutlineInputBorder(),
                           labelText: 'Enter your company name',
@@ -163,12 +198,10 @@ class _LoginDetailsState extends State<LoginDetails> {
               SizedBox(height: 20),
               Center(
                 child: ElevatedButton(
-                  onPressed: () async {
-                    String? email = await utils.getCurrentUserEmail();
-                    email ??= ''; // If email is null, set it to an empty string
-
+                  onPressed: _isEditMode
+                      ? () async {
                     if (_formKey.currentState!.validate()) {
-                      loadingDialog.showDefaultLoading('Uploading the data....');
+                      loadingDialog.showDefaultLoading('Uploading the data...');
                       print("Form is valid. Submitting data...");
                       Map<String, dynamic> uploadData = {
                         'USERNAME': _usernameController.text,
@@ -176,29 +209,26 @@ class _LoginDetailsState extends State<LoginDetails> {
                         'NAME': _nameController.text,
                         'NUMBER': _numberController.text,
                         'LOCATION': _locationController.text,
-                        'UID': utils.getCurrentUserUID(),
-                        'EMAIL': email,
                       };
                       if (_selectedRole == 'TRANSPORTER') {
                         uploadData['TRANSPORTER TYPE'] = _selectedTransporterType;
-                        if (_selectedTransporterType == 'OWNER' || _selectedTransporterType == 'BOTH') {
-                          uploadData['COMPANY NAME'] = _companyNameController.text;
-                        }
                       }
-                      DocumentReference documentref = FirebaseFirestore.instance.doc('/USERDETAILS/${utils.getCurrentUserUID()}');
-                      firestoreService.uploadMapDataToFirestore(uploadData, documentref);
+                      DocumentReference documentRef = FirebaseFirestore.instance.doc('/USERDETAILS/${utils.getCurrentUserUID()}');
+                      try {
+                        await firestoreService.uploadMapDataToFirestore(uploadData, documentRef);
+                        print('Updating Details: ${uploadData.toString()}');
+                        await sharedPreferences.storeMapValuesInSecureStorage(uploadData);
 
-                      sharedPreferences.storeMapValuesInSecureStorage(uploadData);
-                      print("Updated Data: ${uploadData.toString()}");
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                          builder: (context) => Home(isTransporter: false),
-                        ),
-                      );
-                      EasyLoading.dismiss();
+                        Navigator.pop(context);
+                        EasyLoading.dismiss();
+                      } catch (e) {
+                        print('Error uploading data: $e');
+                        // Handle error
+                        EasyLoading.dismiss();
+                      }
                     }
-                  },
-                  child: Text('Submit'),
+                  } : null,
+                  child: Text('Update'),
                 ),
               ),
             ],

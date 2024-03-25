@@ -21,10 +21,10 @@ class FireStoreService {
     }
   }
 
-  Future<List<String>> getDocumentNames(String collectionName) async {
+  Future<List<String>> getDocumentNames(CollectionReference collectionReference) async {
     try {
       // Query the Firestore collection
-      QuerySnapshot querySnapshot = await _firestore.collection(collectionName).get();
+      QuerySnapshot querySnapshot = await collectionReference.get();
 
       // Extract document names from the query snapshot
       List<String> documentNames = querySnapshot.docs.map((doc) => doc.id).toList();
@@ -58,6 +58,20 @@ class FireStoreService {
       print('Error fetching document details: $error');
       return null;
     }
+  }
+
+  void deleteFieldsFromDocument(DocumentReference docRef, List<String> fieldNames) {
+    Map<String, dynamic> updates = {};
+    for (String fieldName in fieldNames) {
+      updates[fieldName] = FieldValue.delete();
+    }
+
+    // Use update method to delete the fields
+    docRef.update(updates).then((_) {
+      print('Fields $fieldNames deleted successfully');
+    }).catchError((error) {
+      print('Error deleting fields $fieldNames: $error');
+    });
   }
 
 }
