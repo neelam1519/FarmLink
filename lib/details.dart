@@ -88,7 +88,6 @@ class _LoginDetailsState extends State<LoginDetails> {
                   suffixIcon: IconButton(
                     icon: Icon(Icons.location_on),
                     onPressed: () {
-                      // Add your onPressed functionality here
                       print('Location icon pressed');
                     },
                   ),
