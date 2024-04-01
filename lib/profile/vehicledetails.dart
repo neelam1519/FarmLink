@@ -25,6 +25,7 @@ class _VehicleDetailsState extends State<VehicleDetails> {
   @override
   void initState() {
     super.initState();
+    _clearControllers();
     if (widget.vehicle.isNotEmpty) {
       _vehicleModelController.text = widget.vehicle['VEHICLE MODEL'];
       _vehicleNumberController.text = widget.vehicle['VEHICLE NUMBER'];
@@ -83,6 +84,13 @@ class _VehicleDetailsState extends State<VehicleDetails> {
     );
   }
 
+  void _clearControllers() {
+    _vehicleModelController.clear();
+    _vehicleNumberController.clear();
+    _weightController.clear();
+    _additionalNotesController.clear();
+  }
+
   Future<void> _saveVehicleDetails() async {
     String vehicleModel = _vehicleModelController.text;
     String vehicleNumber = _vehicleNumberController.text;
@@ -104,13 +112,5 @@ class _VehicleDetailsState extends State<VehicleDetails> {
       ),
     );
   }
-
-  @override
-  void dispose() {
-    _vehicleModelController.dispose();
-    _vehicleNumberController.dispose();
-    _weightController.dispose();
-    _additionalNotesController.dispose();
-    super.dispose();
-  }
 }
+

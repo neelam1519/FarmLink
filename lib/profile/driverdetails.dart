@@ -1,10 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:farmlink/Apis/googlemaps.dart';
 import 'package:farmlink/Firebase/firestore.dart';
 import 'package:farmlink/profile/driverdetailsview.dart';
+import 'package:farmlink/utils/loadingdialog.dart';
 import 'package:farmlink/utils/sharedpreferences.dart';
 import 'package:farmlink/utils/utils.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
+import 'package:geolocator/geolocator.dart';
 
 class DriverDetails extends StatefulWidget {
   @override
@@ -15,6 +20,8 @@ class _DriverDetailsState extends State<DriverDetails> {
   Utils utils = new Utils();
   FireStoreService fireStoreService=new FireStoreService();
   SharedPreferences sharedPreferences= new SharedPreferences();
+  GoogleMaps googleMaps= new GoogleMaps();
+  LoadingDialog loadingDialog = new LoadingDialog();
   bool _showSearchBar = false;
   TextEditingController _searchController = TextEditingController(); // Add controller
   List<String> _suggestedCompanies = [];
@@ -53,9 +60,7 @@ class _DriverDetailsState extends State<DriverDetails> {
         stream: FirebaseFirestore.instance.collection('USERDETAILS').doc(uid).collection('DRIVER').doc('DRIVERS').snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting || !snapshot.hasData) {
-            return Center(
-              child: CircularProgressIndicator(),
-            );
+            loadingDialog.showDefaultLoading('Getting Driver Details....');
           }
           if (snapshot.hasError) {
             print('Error: ${snapshot.error}');
@@ -63,8 +68,8 @@ class _DriverDetailsState extends State<DriverDetails> {
               child: Text('Error: ${snapshot.error}'),
             );
           }
-
-          var data = snapshot.data!.data();
+          print('SnapShot: ${snapshot.data}');
+          var data = snapshot.data?.data();
           print('Main Document Data: $data');
           if (data == null || !(data is Map<String, dynamic>)) {
             return Center(
@@ -78,9 +83,7 @@ class _DriverDetailsState extends State<DriverDetails> {
             future: mainDocumentRef.get(),
             builder: (context, mainSnapshot) {
               if (mainSnapshot.connectionState == ConnectionState.waiting) {
-                return Center(
-                  child: CircularProgressIndicator(),
-                );
+
               }
               if (mainSnapshot.hasError) {
                 print('Main Document Error: ${mainSnapshot.error}');
@@ -123,9 +126,7 @@ class _DriverDetailsState extends State<DriverDetails> {
                     future: driverReferences[index].get(),
                     builder: (context, driverSnapshot) {
                       if (driverSnapshot.connectionState == ConnectionState.waiting) {
-                        return Center(
-                          child: CircularProgressIndicator(),
-                        );
+                        return Center();
                       }
                       if (driverSnapshot.hasError) {
                         print('Driver Document Error: ${driverSnapshot.error}');
@@ -143,6 +144,7 @@ class _DriverDetailsState extends State<DriverDetails> {
                       Map<String, dynamic>? driverData = driverSnapshot.data!.data() as Map<String, dynamic>?;
                       print('Driver Data: ${driverData.toString()}');
                       if (driverData == null) {
+                        EasyLoading.dismiss();
                         return Center(
                           child: Text('No driver details available'),
                         );
@@ -151,6 +153,7 @@ class _DriverDetailsState extends State<DriverDetails> {
                       String name = driverData['NAME'] ?? '';
                       String number = driverData['NUMBER'] ?? '';
                       print('Driver Name: $name, Number: $number');
+                      EasyLoading.dismiss();
 
                       // Display driver details in a card
                       return Card(
@@ -159,7 +162,6 @@ class _DriverDetailsState extends State<DriverDetails> {
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Name: $name'),
                                 Text('Number: $number'),
                               ],
                             ),
@@ -187,18 +189,16 @@ class _DriverDetailsState extends State<DriverDetails> {
     return Container(
       width: 300, // Set the width of the search bar
       height: 50, // Set the height of the search bar
-      child: TypeAheadField<String>(
+      child: TypeAheadField<Map<String, String>>(
         suggestionsCallback: (pattern) async {
           // Return suggestions based on the pattern
           return _fetchSuggestedCompanies(pattern);
         },
-        itemBuilder: (context, String suggestion) {
-          // Extracting name, number, and location from the suggestion
-          List<String> suggestionDetails = suggestion.split(','); // Assuming suggestion format is "Name, Number, Location"
-          String name = suggestionDetails[0];
-          String number = suggestionDetails[1];
-          String location = suggestionDetails[2];
-          String uid = suggestionDetails[3];
+        itemBuilder: (context, Map<String, String> suggestion) {
+          String name = suggestion['NAME']!;
+          String number = suggestion['NUMBER']!;
+          String location = suggestion['LOCATION']!;
+          String uid = suggestion['UID']!;
 
           return ListTile(
             title: Text(name),
@@ -211,22 +211,35 @@ class _DriverDetailsState extends State<DriverDetails> {
             ),
             trailing: IconButton(
               icon: Icon(Icons.handshake),
-              onPressed: () {
+              onPressed: ()  {
+                // Hide the keyboard
+                SystemChannels.textInput.invokeMethod('TextInput.hide');
+
                 // Handle button press for this suggestion
-                DocumentReference requestRef=FirebaseFirestore.instance.doc('USERDETAILS/$uid/REQUESTS/PENDING');
-                DocumentReference userRef=FirebaseFirestore.instance.doc('USERDETAILS/${utils.getCurrentUserUID()}');
-                Map<String,dynamic> data={companyName!:userRef};
-                fireStoreService.uploadMapDataToFirestore(data, requestRef);
-                print('Search button pressed for suggestion: $suggestion');
-                utils.showToastMessage('Request sent to the driver', context);
+                DocumentReference requestRef = FirebaseFirestore.instance.doc('USERDETAILS/$uid/REQUESTS/PENDING');
+                DocumentReference userRef = FirebaseFirestore.instance.doc('USERDETAILS/${utils.getCurrentUserUID()}');
+                Map<String, dynamic> data = {companyName!: userRef};
+
+                try {
+                  fireStoreService.uploadMapDataToFirestore(data, requestRef);
+                  print('RequestRef: $requestRef  UserRef: $userRef  Data: $data');
+
+                  if (mounted) {
+                    // Check if the widget is mounted before showing the toast message
+                    utils.showToastMessage('Request sent to the driver', context);
+                  }
+                } catch (error) {
+                  print('Error uploading data to Firestore: $error');
+                  // Handle error if needed
+                }
               },
             ),
           );
         },
-        onSelected: (String suggestion) {
+        onSelected: (Map<String, String> suggestion) {
           print('Selected suggestion: $suggestion');
           setState(() {
-            _searchController.text = suggestion;
+            _searchController.text = suggestion['NAME']!;
           });
         },
         builder: (context, controller, focusNode) {
@@ -246,34 +259,42 @@ class _DriverDetailsState extends State<DriverDetails> {
   }
 
 
-  Future<List<String>> _fetchSuggestedCompanies(String pattern) async {
+
+  Future<List<Map<String, String>>> _fetchSuggestedCompanies(String pattern) async {
     print("Getting the Driver details...: $pattern");
     if (pattern.isEmpty) {
       return [];
     }
-    List<String> suggestedCompanies = [];
+    List<Map<String, String>> suggestedCompanies = [];
     try {
-      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
-          .collection('USERDETAILS')
-          .where('ROLE', isEqualTo: 'TRANSPORTER')
-          .where('TRANSPORTER TYPE', isEqualTo: 'DRIVER')
-          .get();
+      QuerySnapshot querySnapshot = await FirebaseFirestore.instance.collection('USERDETAILS').where('ROLE', isEqualTo: 'TRANSPORTER')
+          .where('TRANSPORTER TYPE', isEqualTo: 'DRIVER').where('isWorking',isEqualTo: false).get();
 
-      querySnapshot.docs.forEach((doc) {
-        // Extract the name, number, and location from each document
-        String name = doc['NAME'];
-        String number = doc['NUMBER'];
-        String location = doc['LOCATION'];
-        String uid=doc['UID'];
+      for (QueryDocumentSnapshot doc in querySnapshot.docs) {
 
-        // Format the suggestion string
-        String suggestion = '$name, $number, $location,$uid';
+        String? location = await googleMaps.getAddressFromCoordinates(doc['LOCATION']);
 
-        // Check if the suggestion matches the pattern
-        if (suggestion.startsWith(pattern.toLowerCase())) {
+        // Remove the substring before the first comma
+        if (location != null) {
+          int commaIndex = location.indexOf(',');
+          if (commaIndex != -1) {
+            location = location.substring(commaIndex + 1).trim();
+          }
+        }
+
+        Map<String, String> suggestion = {
+          'NAME': doc['NAME'],
+          'NUMBER': doc['NUMBER'],
+          'LOCATION': location ?? '',
+          'UID': doc['UID'],
+        };
+
+        print('Suggestion: $suggestion');
+
+        if (suggestion['NAME']!.toLowerCase().startsWith(pattern.toLowerCase())) {
           suggestedCompanies.add(suggestion);
         }
-      });
+      }
       print('DriverDetails: $suggestedCompanies');
       return suggestedCompanies;
     } catch (error) {
@@ -281,6 +302,7 @@ class _DriverDetailsState extends State<DriverDetails> {
       return [];
     }
   }
+
 
   @override
   void dispose() {

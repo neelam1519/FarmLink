@@ -1,6 +1,7 @@
 import 'dart:ffi';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:farmlink/Apis/googlemaps.dart';
 import 'package:farmlink/Firebase/firestore.dart';
 import 'package:farmlink/Home.dart';
 import 'package:farmlink/utils/loadingdialog.dart';
@@ -8,6 +9,7 @@ import 'package:farmlink/utils/sharedpreferences.dart';
 import 'package:farmlink/utils/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:geolocator_platform_interface/src/models/position.dart';
 
 class LoginDetails extends StatefulWidget {
   @override
@@ -18,8 +20,12 @@ class _LoginDetailsState extends State<LoginDetails> {
   final _formKey = GlobalKey<FormState>();
   FireStoreService firestoreService = new FireStoreService();
   Utils utils = new Utils();
+  GoogleMaps googleMaps=new GoogleMaps();
   LoadingDialog loadingDialog = new LoadingDialog();
   SharedPreferences sharedPreferences = new SharedPreferences();
+  late Position? position;
+  String? location;
+  GeoPoint? geoPoint;
 
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
@@ -87,8 +93,13 @@ class _LoginDetailsState extends State<LoginDetails> {
                   labelText: 'Location',
                   suffixIcon: IconButton(
                     icon: Icon(Icons.location_on),
-                    onPressed: () {
-                      print('Location icon pressed');
+                    onPressed: () async {
+                      position= await googleMaps.getCurrentLocation();
+                      geoPoint=position != null ? GeoPoint(position!.latitude, position!.longitude) : null;
+                      location=await googleMaps.getAddressFromCoordinates(geoPoint!);
+                      _locationController.text=location.toString();
+                      print('Place: ${location.toString()}');
+                      print('Location icon pressed: ${position}');
                     },
                   ),
                 ),
@@ -165,7 +176,6 @@ class _LoginDetailsState extends State<LoginDetails> {
                   onPressed: () async {
                     String? email = await utils.getCurrentUserEmail();
                     email ??= ''; // If email is null, set it to an empty string
-
                     if (_formKey.currentState!.validate()) {
                       loadingDialog.showDefaultLoading('Uploading the data....');
                       print("Form is valid. Submitting data...");
@@ -174,7 +184,7 @@ class _LoginDetailsState extends State<LoginDetails> {
                         'ROLE': _selectedRole,
                         'NAME': _nameController.text,
                         'NUMBER': _numberController.text,
-                        'LOCATION': _locationController.text,
+                        'LOCATION': geoPoint,
                         'UID': utils.getCurrentUserUID(),
                         'EMAIL': email,
                       };
@@ -186,7 +196,7 @@ class _LoginDetailsState extends State<LoginDetails> {
                       }
                       DocumentReference documentref = FirebaseFirestore.instance.doc('/USERDETAILS/${utils.getCurrentUserUID()}');
                       firestoreService.uploadMapDataToFirestore(uploadData, documentref);
-
+                      uploadData['LOCATION'] = location.toString();
                       sharedPreferences.storeMapValuesInSecureStorage(uploadData);
                       print("Updated Data: ${uploadData.toString()}");
                       Navigator.of(context).pushReplacement(

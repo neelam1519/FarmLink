@@ -1,7 +1,9 @@
-import 'package:farmlink/profile/vehicledetails.dart';
-import 'package:farmlink/utils/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:farmlink/profile/vehicledetails.dart';
+import 'package:farmlink/utils/loadingdialog.dart';
+import 'package:farmlink/utils/utils.dart';
 
 class Vehicles extends StatefulWidget {
   @override
@@ -9,23 +11,40 @@ class Vehicles extends StatefulWidget {
 }
 
 class _VehiclesState extends State<Vehicles> {
+  LoadingDialog loadingDialog = new LoadingDialog();
   Utils utils = new Utils();
-  late String uid;
+  late String uid = '';
+  List<Map<String, dynamic>> vehicleMaps = []; // Store all vehicle maps
 
   @override
   void initState() {
     super.initState();
-    getDetails();
+    loadingDialog.showDefaultLoading('Getting Vehicle Details');
+    getDetails(); // Fetch UID once when the widget initializes
   }
 
   Future<void> getDetails() async {
-    uid = await utils.getCurrentUserUID(); // Await the result
-    setState(() {}); // Trigger a rebuild after getting the uid
+    // Fetch the UID
+    uid = await utils.getCurrentUserUID();
+    print('UID: $uid');
+    setState(() {}); // Update the UI after getting the UID
   }
 
   @override
   Widget build(BuildContext context) {
-    getDetails();
+    // Check if UID is empty, meaning it hasn't been fetched yet
+    if (uid.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('Vehicles'),
+        ),
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    // Once UID is fetched, proceed with building the widget
     return Scaffold(
       appBar: AppBar(
         title: Text('Vehicles'),
@@ -33,9 +52,10 @@ class _VehiclesState extends State<Vehicles> {
           IconButton(
             icon: Icon(Icons.add),
             onPressed: () {
+              // Implement logic for adding a new vehicle
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) => VehicleDetails(vehicle: {},),
+                  builder: (context) => VehicleDetails(vehicle: {}),
                 ),
               );
             },
@@ -47,19 +67,30 @@ class _VehiclesState extends State<Vehicles> {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(
-              child: CircularProgressIndicator(),
             );
           }
           if (snapshot.hasError) {
+            EasyLoading.dismiss(); // Dismiss loading dialog when an error occurs
             return Center(
               child: Text('Error: ${snapshot.error}'),
             );
           }
-          List<Map<String, dynamic>> vehicleMaps = snapshot.data!.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
+
+          // Dismiss loading dialog once vehicle details are fetched successfully
+          EasyLoading.dismiss();
+
+          vehicleMaps = snapshot.data!.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
+
+          if (vehicleMaps.isEmpty) {
+            return Center(
+              child: Text('No vehicles found.'),
+            );
+          }
+
           return ListView.builder(
             itemCount: vehicleMaps.length,
             itemBuilder: (context, index) {
-              var vehicle = vehicleMaps[index];
+              Map<String, dynamic> vehicle = vehicleMaps[index];
               return Card(
                 child: ListTile(
                   title: Column(
@@ -74,6 +105,7 @@ class _VehiclesState extends State<Vehicles> {
                   ),
                   onTap: () {
                     // Implement onTap logic here
+                    // For example, navigate to a vehicle details screen
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (context) => VehicleDetails(vehicle: vehicle),

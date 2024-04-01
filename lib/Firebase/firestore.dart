@@ -5,6 +5,13 @@ class FireStoreService {
 
   Future<void> uploadMapDataToFirestore(Map<String, dynamic> data, DocumentReference documentReference) async {
     try {
+      // Convert GeoPoint values to Firestore GeoPoint objects
+      data.forEach((key, value) {
+        if (value is GeoPoint) {
+          data[key] = value;
+        }
+      });
+
       await documentReference.set(data, SetOptions(merge: true));
       print('Map data uploaded successfully to Firestore!');
     } on FirebaseException catch (e) {

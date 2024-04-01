@@ -113,6 +113,15 @@ class _ProfileState extends State<Profile> {
                 );
               },
             ),
+          ]else if (role == 'FARMER') ...[
+            ListTile(
+              trailing: Icon(Icons.arrow_forward_ios),
+              title: Text('Crops'),
+              onTap: () {
+                // Add navigation logic here
+
+              },
+            ),
           ],
           ListTile(
             trailing: Icon(

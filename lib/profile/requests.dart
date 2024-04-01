@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:farmlink/Apis/googlemaps.dart';
 import 'package:farmlink/utils/utils.dart';
 import 'package:farmlink/profile/requestDetails.dart';
+import 'package:farmlink/utils/loadingdialog.dart';
+import 'package:flutter_easyloading/flutter_easyloading.dart';
 
 class Requests extends StatefulWidget {
   @override
@@ -10,7 +13,10 @@ class Requests extends StatefulWidget {
 
 class _RequestsState extends State<Requests> {
   Utils utils = new Utils();
-  String? uid; // Make uid nullable
+  GoogleMaps googleMaps = new GoogleMaps();
+  LoadingDialog loadingDialog = new LoadingDialog();
+
+  String? uid;
 
   @override
   void initState() {
@@ -20,36 +26,30 @@ class _RequestsState extends State<Requests> {
 
   Future<void> getDetails() async {
     print('Getting Details...');
-    uid = await utils.getCurrentUserUID(); // Await the result
+    uid = await utils.getCurrentUserUID();
     print('UID detail: $uid');
     setState(() {}); // Trigger a rebuild after getting the uid
   }
 
   @override
   Widget build(BuildContext context) {
-    if (uid == null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text('Requests'),
-        ),
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
     return Scaffold(
       appBar: AppBar(
         title: Text('Requests'),
       ),
       body: StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance.collection('USERDETAILS').doc(uid).collection('REQUESTS').doc('PENDING').snapshots(),
+        stream: FirebaseFirestore.instance
+            .collection('USERDETAILS')
+            .doc(uid)
+            .collection('REQUESTS')
+            .doc('PENDING')
+            .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting ||
               !snapshot.hasData) {
             print('Snapshot: ${snapshot.toString()}');
-            return Center(
-              child: CircularProgressIndicator(),
-            );
+            loadingDialog.showDefaultLoading('Getting requests');
+            return Container();
           }
           if (snapshot.hasError) {
             print('Error: ${snapshot.error}');
@@ -76,15 +76,14 @@ class _RequestsState extends State<Requests> {
           return Column(
             children: [
               // Loop through the references and show data for each reference
-              for (var reference in references)
+              for (var reference in references) ...[
                 FutureBuilder<DocumentSnapshot>(
                   future: reference.get(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return Center(
-                        child: CircularProgressIndicator(),
-                      );
+                      return Center();
                     }
+
                     if (snapshot.hasError) {
                       print('Error: ${snapshot.error}');
                       return Center(
@@ -98,7 +97,8 @@ class _RequestsState extends State<Requests> {
                     }
 
                     // Get the document data and cast to the correct type
-                    Map<String, dynamic>? requestData = snapshot.data!.data() as Map<String, dynamic>?; // Make requestData nullable
+                    Map<String, dynamic>? requestData =
+                    snapshot.data!.data() as Map<String, dynamic>?; // Make requestData nullable
                     if (requestData == null) {
                       return Center(
                         child: Text('No request data available'),
@@ -116,30 +116,51 @@ class _RequestsState extends State<Requests> {
                     // Ensure that the required fields exist before accessing them
                     String companyName = requestData['COMPANY NAME'] ?? '';
                     String number = requestData['NUMBER'] ?? '';
-                    String location = requestData['LOCATION'] ?? '';
+                    GeoPoint position = requestData['LOCATION'];
 
-                    return Card(
-                      child: ListTile(
-                        title: Text(companyName),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Number: $number'),
-                            Text('Location: $location'),
-                          ],
-                        ),
-                        onTap: () {
-                          // Handle onTap event
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => RequestDetails(requestData: requestData),
-                            ),
+                    return FutureBuilder<String?>(
+                      future: googleMaps.getAddressFromCoordinates(position),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return Center();
+                        }
+                        if (snapshot.hasError) {
+                          return Center(
+                            child: Text('Error fetching location'),
                           );
-                        },
-                      ),
+                        }
+                        String? location = snapshot.data;
+
+                        // Dismiss the loading dialog after getting the details
+                        EasyLoading.dismiss();
+
+                        return Card(
+                          child: ListTile(
+                            title: Text(companyName),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Number: $number'),
+                                Text('Location: ${location ?? "Unknown"}'),
+                              ],
+                            ),
+                            onTap: () {
+                              // Handle onTap event
+                              requestData['LOCATION'] = location;
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => RequestDetails(requestData: requestData),
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
                     );
                   },
                 ),
+                SizedBox(height: 10), // Add some space between cards
+              ],
             ],
           );
         },

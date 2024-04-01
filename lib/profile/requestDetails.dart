@@ -1,8 +1,10 @@
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:farmlink/Firebase/firestore.dart';
+import 'package:farmlink/utils/loadingdialog.dart';
 import 'package:farmlink/utils/sharedpreferences.dart';
 import 'package:farmlink/utils/utils.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter_easyloading/flutter_easyloading.dart';
 
 class RequestDetails extends StatefulWidget {
   final Map<String, dynamic> requestData;
@@ -14,21 +16,22 @@ class RequestDetails extends StatefulWidget {
 class _RequestDetailsState extends State<RequestDetails> {
   Utils utils = new Utils();
   FireStoreService fireStoreService = new FireStoreService();
-  SharedPreferences sharedPreferences=new SharedPreferences();
+  SharedPreferences sharedPreferences = new SharedPreferences();
+  LoadingDialog loadingDialog = new LoadingDialog();
 
   List<String> showDetails = ['COMPANY NAME', 'NAME', 'LOCATION', 'NUMBER'];
-  String? name='';
+  String? name = '';
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
     getDetails();
   }
 
-  Future<void> getDetails() async{
-    name=await sharedPreferences.getSecurePrefsValue('NAME');
+  Future<void> getDetails() async {
+    name = await sharedPreferences.getSecurePrefsValue('NAME');
   }
+
   @override
   Widget build(BuildContext context) {
     print('DATA: ${widget.requestData.toString()}');
@@ -48,63 +51,74 @@ class _RequestDetailsState extends State<RequestDetails> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(key,
+                      Text(
+                        key,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 16, // Decreased font size
+                          fontSize: 16,
                         ),
                       ),
                       SizedBox(height: 5),
                       TextFormField(
                         initialValue: '${widget.requestData[key]}',
-                        readOnly: true, // Set to true to prevent editing
+                        readOnly: true,
                         decoration: InputDecoration(
                           border: OutlineInputBorder(),
                           hintText: 'Enter $key',
-                          contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 10), // Adjust text field padding
+                          contentPadding:
+                          EdgeInsets.symmetric(vertical: 10, horizontal: 10),
                           hintStyle: TextStyle(
-                            fontSize: 14, // Decreased font size
+                            fontSize: 14,
                           ),
                         ),
-                        style: TextStyle(fontSize: 14), // Decreased font size
+                        style: TextStyle(fontSize: 14),
                       ),
                     ],
                   ),
                 );
               }).toList(),
-              // Add icons for accepting or declining
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 20.0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     IconButton(
-                      icon: Icon(Icons.check, size: 30, color: Colors.green), // Accept icon
+                      icon: Icon(Icons.check, size: 30, color: Colors.green),
                       onPressed: () {
-                        // Add your accept logic here
+                        loadingDialog.showDefaultLoading('Joining ${widget.requestData['COMPANY NAME']} company');
                         print('You Accepted the request');
-                        DocumentReference companyRef=FirebaseFirestore.instance.doc('USERDETAILS/${widget.requestData['UID']}/DRIVER/$name');
+                        DocumentReference companyRef = FirebaseFirestore.instance.doc('USERDETAILS/${widget.requestData['UID']}/DRIVER/DRIVERS');
 
-                        DocumentReference userRef= FirebaseFirestore.instance.doc('USERDETAILS/${utils.getCurrentUserUID()}');
+                        DocumentReference userRef =
+                        FirebaseFirestore.instance.doc('USERDETAILS/${utils.getCurrentUserUID()}');
 
-                        Map<String,dynamic> userData={'isWorking':true};
+                        Map<String, dynamic> userData = {'isWorking': true};
                         fireStoreService.uploadMapDataToFirestore(userData, userRef);
 
-                        Map<String,dynamic> companyData={name!:userRef};
+                        Map<String, dynamic> companyData = {name!: userRef};
                         fireStoreService.uploadMapDataToFirestore(companyData, companyRef);
 
+                        DocumentReference declineRef =
+                        FirebaseFirestore.instance.doc('/USERDETAILS/${utils.getCurrentUserUID()}/REQUESTS/PENDING');
+                        List<String> deleteData = [widget.requestData['COMPANY NAME']];
+                        fireStoreService.deleteFieldsFromDocument(declineRef, deleteData);
+
                         print('Accepted data: ${widget.requestData}');
+                        Navigator.pop(context);
+                        EasyLoading.dismiss();
                       },
                     ),
-                    SizedBox(width: 20), // Add SizedBox for spacing
+                    SizedBox(width: 20),
                     IconButton(
-                      icon: Icon(Icons.close, size: 30, color: Colors.red), // Decline icon
+                      icon: Icon(Icons.close, size: 30, color: Colors.red),
                       onPressed: () {
-                        // Add your decline logic here
-                        DocumentReference declineRef = FirebaseFirestore.instance.doc('/USERDETAILS/${utils.getCurrentUserUID()}/REQUESTS/PENDING');
-                        // Field to delete is based on COMPANY NAME
-                        List<String> deleteData=[widget.requestData['COMPANY NAME']];
+                        loadingDialog.showDefaultLoading('Deleting the request');
+                        DocumentReference declineRef =
+                        FirebaseFirestore.instance.doc('/USERDETAILS/${utils.getCurrentUserUID()}/REQUESTS/PENDING');
+                        List<String> deleteData = [widget.requestData['COMPANY NAME']];
                         fireStoreService.deleteFieldsFromDocument(declineRef, deleteData);
+                        Navigator.pop(context);
+                        EasyLoading.dismiss();
                       },
                     ),
                   ],
